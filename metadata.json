@@ -1,0 +1,6 @@
+{
+  "name": "TR Elevación Inteligente",
+  "description": "Calculadora de flota de máquinas elevadoras, panel IoT en tiempo real, alertas predictivas, análisis de eficiencia energética y espacio colaborativo para la optimización logística.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
