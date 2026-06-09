@@ -213,6 +213,13 @@ export default function IoTPanel({ isEnergySavingMode, onLogUpdate, alerts, onAl
     }));
   };
 
+  const severityOrderFleet: Record<string, number> = { critical: 0, warning: 1, maintenance: 2, operational: 3 };
+  const sortedFleet = [...fleet].sort((a, b) => (severityOrderFleet[a.status] ?? 4) - (severityOrderFleet[b.status] ?? 4));
+  const criticalFleetCount = fleet.filter(f => f.status === 'critical').length;
+  const warningFleetCount = fleet.filter(f => f.status === 'warning').length;
+  const severityOrderAlert: Record<string, number> = { high: 0, medium: 1, low: 2 };
+  const sortedAlerts = [...alerts].sort((a, b) => (severityOrderAlert[a.severity] ?? 3) - (severityOrderAlert[b.severity] ?? 3));
+
   return (
     <div id="iot-panel-root" className="grid grid-cols-1 lg:grid-cols-12 gap-6">
       
@@ -260,12 +267,22 @@ export default function IoTPanel({ isEnergySavingMode, onLogUpdate, alerts, onAl
 
         {/* Fleet Grid / Status list */}
         <div id="fleet-telemetry-grid" className="bg-gray-900 border border-gray-850 p-5 rounded-xl shadow-md space-y-4">
-          <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+          <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2 flex-wrap">
             <Cpu className="w-4 h-4 text-red-500" /> Monitoreo de Flota Activa Sincronizada
+            {criticalFleetCount > 0 && (
+              <span className="px-1.5 py-0.5 bg-red-600/15 text-red-500 border border-red-600/20 rounded text-[9px] font-bold animate-pulse">
+                {criticalFleetCount} crítica{criticalFleetCount !== 1 ? 's' : ''}
+              </span>
+            )}
+            {warningFleetCount > 0 && (
+              <span className="px-1.5 py-0.5 bg-amber-500/10 text-amber-500 border border-amber-500/20 rounded text-[9px] font-bold">
+                {warningFleetCount} aviso{warningFleetCount !== 1 ? 's' : ''}
+              </span>
+            )}
           </h3>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-            {fleet.map((machine) => {
+            {sortedFleet.map((machine) => {
               const isSelected = selectedMachineId === machine.id;
               
               // status helpers
@@ -282,11 +299,23 @@ export default function IoTPanel({ isEnergySavingMode, onLogUpdate, alerts, onAl
                   key={machine.id}
                   onClick={() => setSelectedMachineId(machine.id)}
                   className={`p-4 rounded-xl border transition cursor-pointer flex flex-col justify-between h-40 group relative overflow-hidden ${
-                    isSelected 
-                      ? 'bg-gradient-to-br from-gray-950 to-gray-900 border-red-600' 
+                    isSelected
+                      ? 'bg-gradient-to-br from-gray-950 to-gray-900 border-red-600'
+                      : machine.status === 'critical'
+                      ? 'bg-red-950/10 border-red-600/40 hover:border-red-500'
+                      : machine.status === 'warning'
+                      ? 'bg-amber-950/5 border-amber-500/40 hover:border-amber-400'
                       : 'bg-gray-950/70 border-gray-800 hover:border-gray-700'
                   }`}
                 >
+                  {/* Critical: gradient top line */}
+                  {machine.status === 'critical' && (
+                    <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-red-600 via-red-400 to-red-600" />
+                  )}
+                  {/* Critical: pulsing border overlay */}
+                  {machine.status === 'critical' && !isSelected && (
+                    <div className="absolute inset-0 rounded-xl border-2 border-red-600/40 animate-pulse pointer-events-none" />
+                  )}
                   {/* Decorative tag for brand */}
                   <div className="absolute top-0 right-0 px-2 py-0.5 bg-gray-900 border-b border-l border-gray-800 text-[9px] font-bold text-gray-500 rounded-bl">
                     {machine.type} • {machine.brand}
@@ -471,7 +500,7 @@ export default function IoTPanel({ isEnergySavingMode, onLogUpdate, alerts, onAl
                 No hay alertas críticas. Toda la flota opera a pleno rendimiento, garantizando máxima productividad.
               </div>
             ) : (
-              alerts.map(alert => {
+              sortedAlerts.map(alert => {
                 const isHigh = alert.severity === 'high';
                 const isScheduled = alert.status === 'scheduled';
                 return (

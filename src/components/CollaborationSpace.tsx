@@ -8,6 +8,19 @@ import { Collaborator, RevisionLog, DocumentState } from '../types';
 import { INITIAL_COLLABORATORS, INITIAL_REVISION_LOGS } from '../data';
 import { Users, FileText, CheckCircle, Wifi, WifiOff, Clock, Plus, CloudLightning, ShieldCheck, UserPlus, RefreshCw } from 'lucide-react';
 
+interface Task {
+  id: string;
+  title: string;
+  assignee: string;
+  status: 'pending' | 'scheduled' | 'resolved';
+}
+
+const INITIAL_TASKS: Task[] = [
+  { id: 'task-1', title: 'Revisar neumáticos de carretilla T4', assignee: 'Carlos Díaz', status: 'pending' },
+  { id: 'task-2', title: 'Calibrar sensores IoT del muelle A', assignee: 'Ana Martínez', status: 'scheduled' },
+  { id: 'task-3', title: 'Actualizar plan de mantenimiento BYD', assignee: 'Javier López', status: 'resolved' },
+];
+
 interface CollaborationSpaceProps {
   onLogUpdate: (action: string, details: string) => void;
   revisionLogs: RevisionLog[];
@@ -21,6 +34,11 @@ export default function CollaborationSpace({ onLogUpdate, revisionLogs, onAddRev
   const [isInviting, setIsInviting] = useState<boolean>(false);
   const [inviteName, setInviteName] = useState<string>('');
   const [isConfirmingPurge, setIsConfirmingPurge] = useState<boolean>(false);
+  const [tasks, setTasks] = useState<Task[]>(INITIAL_TASKS);
+  const [newTaskTitle, setNewTaskTitle] = useState('');
+  const [newTaskAssignee, setNewTaskAssignee] = useState('');
+  const [showAddTask, setShowAddTask] = useState(false);
+  const [hoveredTaskId, setHoveredTaskId] = useState<string | null>(null);
 
   const [docState, setDocState] = useState<DocumentState>({
     title: 'Plan Operativo de la Flota de Muelle - Muelle A',
@@ -116,6 +134,35 @@ export default function CollaborationSpace({ onLogUpdate, revisionLogs, onAddRev
     }
   };
 
+  const cycleTaskStatus = (taskId: string) => {
+    const next: Record<Task['status'], Task['status']> = { pending: 'scheduled', scheduled: 'resolved', resolved: 'pending' };
+    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: next[t.status] } : t));
+  };
+
+  const deleteTask = (taskId: string) => {
+    setTasks(prev => prev.filter(t => t.id !== taskId));
+  };
+
+  const addTask = () => {
+    if (!newTaskTitle.trim()) return;
+    const task: Task = {
+      id: `task-${Date.now()}`,
+      title: newTaskTitle.trim(),
+      assignee: newTaskAssignee || 'Sin asignar',
+      status: 'pending',
+    };
+    setTasks(prev => [...prev, task]);
+    setNewTaskTitle('');
+    setNewTaskAssignee('');
+    setShowAddTask(false);
+  };
+
+  const taskCounts = {
+    pending: tasks.filter(t => t.status === 'pending').length,
+    scheduled: tasks.filter(t => t.status === 'scheduled').length,
+    resolved: tasks.filter(t => t.status === 'resolved').length,
+  };
+
   return (
     <div id="collaboration-space-root" className="grid grid-cols-1 lg:grid-cols-12 gap-6">
       
@@ -163,14 +210,14 @@ export default function CollaborationSpace({ onLogUpdate, revisionLogs, onAddRev
         <div id="collab-notes-editor" className="bg-gray-900 border border-gray-850 p-5 rounded-2xl shadow-md space-y-4 relative">
           
           <div className="flex justify-between items-center pb-2 border-b border-gray-850">
-            <div className="flex items-center gap-2">
-              <FileText className="w-4 h-4 text-red-500" />
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              <FileText className="w-4 h-4 text-red-500 flex-shrink-0" />
               <input
                 id="doc-title-input"
                 type="text"
                 value={docState.title}
                 onChange={(e) => setDocState({ ...docState, title: e.target.value })}
-                className="font-bold text-sm text-white bg-transparent outline-none focus:border-b focus:border-red-600 border-dashed border-gray-750 pb-1 w-full max-w-sm"
+                className="font-bold text-sm text-white bg-transparent outline-none focus:border-b focus:border-red-600 border-dashed border-gray-750 pb-1 w-full"
               />
             </div>
             <div className="text-[10px] text-gray-500 flex items-center gap-1 font-mono">
@@ -184,6 +231,120 @@ export default function CollaborationSpace({ onLogUpdate, revisionLogs, onAddRev
               <RefreshCw className="w-3 h-3 animate-spin" /> {typingUser} está aportando cambios en directo...
             </div>
           )}
+
+          {/* Task Manager */}
+          <div className="bg-gray-950 border border-gray-850 rounded-xl p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-bold text-white uppercase tracking-wide">Tareas del Plan</span>
+                {taskCounts.pending > 0 && (
+                  <span className="px-1.5 py-0.5 bg-amber-500/10 text-amber-500 border border-amber-500/20 rounded text-[9px] font-bold">{taskCounts.pending} pendiente{taskCounts.pending !== 1 ? 's' : ''}</span>
+                )}
+                {taskCounts.scheduled > 0 && (
+                  <span className="px-1.5 py-0.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded text-[9px] font-bold">{taskCounts.scheduled} planificada{taskCounts.scheduled !== 1 ? 's' : ''}</span>
+                )}
+                {taskCounts.resolved > 0 && (
+                  <span className="px-1.5 py-0.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded text-[9px] font-bold">{taskCounts.resolved} resuelta{taskCounts.resolved !== 1 ? 's' : ''}</span>
+                )}
+              </div>
+              <button
+                onClick={() => setShowAddTask(!showAddTask)}
+                className="p-1 text-gray-500 hover:text-white rounded transition"
+                title="Añadir tarea"
+              >
+                <Plus className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            <div className="space-y-1.5">
+              {tasks.map(task => (
+                <div
+                  key={task.id}
+                  className="flex items-center gap-2 py-0.5"
+                  onMouseEnter={() => setHoveredTaskId(task.id)}
+                  onMouseLeave={() => setHoveredTaskId(null)}
+                >
+                  <button
+                    onClick={() => cycleTaskStatus(task.id)}
+                    className={`flex-shrink-0 w-4 h-4 rounded-full border-2 transition flex items-center justify-center ${
+                      task.status === 'resolved'
+                        ? 'bg-emerald-500 border-emerald-500'
+                        : task.status === 'scheduled'
+                        ? 'border-blue-400 bg-blue-950/30'
+                        : 'border-gray-600 hover:border-amber-400'
+                    }`}
+                    title="Cambiar estado"
+                  >
+                    {task.status === 'resolved' && <span className="text-white text-[8px] leading-none">✓</span>}
+                    {task.status === 'scheduled' && <span className="w-1.5 h-1.5 rounded-full bg-blue-400 block" />}
+                  </button>
+
+                  <div className="flex-1 min-w-0">
+                    <span className={`text-[11px] block truncate ${task.status === 'resolved' ? 'line-through text-gray-600' : 'text-gray-300'}`}>
+                      {task.title}
+                    </span>
+                    <span className="text-[9px] text-gray-600">{task.assignee}</span>
+                  </div>
+
+                  <span className={`text-[8px] font-bold uppercase px-1.5 py-0.5 rounded flex-shrink-0 ${
+                    task.status === 'resolved'
+                      ? 'bg-emerald-950/30 text-emerald-600'
+                      : task.status === 'scheduled'
+                      ? 'bg-blue-950/30 text-blue-400'
+                      : 'bg-amber-950/20 text-amber-500'
+                  }`}>
+                    {task.status === 'resolved' ? 'Resuelta' : task.status === 'scheduled' ? 'Planif.' : 'Pendiente'}
+                  </span>
+
+                  <button
+                    onClick={() => deleteTask(task.id)}
+                    className={`flex-shrink-0 text-gray-700 hover:text-red-500 transition text-[10px] font-bold ${hoveredTaskId === task.id ? 'opacity-100' : 'opacity-0'}`}
+                    title="Eliminar tarea"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {showAddTask && (
+              <div className="pt-2 border-t border-gray-800 space-y-2">
+                <input
+                  type="text"
+                  placeholder="Título de la tarea..."
+                  value={newTaskTitle}
+                  onChange={e => setNewTaskTitle(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && addTask()}
+                  className="w-full bg-gray-900 border border-gray-800 focus:border-red-600 focus:outline-none rounded-lg p-2 text-xs text-white"
+                  autoFocus
+                />
+                <div className="flex gap-2">
+                  <select
+                    value={newTaskAssignee}
+                    onChange={e => setNewTaskAssignee(e.target.value)}
+                    className="flex-1 bg-gray-900 border border-gray-800 focus:border-red-600 focus:outline-none rounded-lg p-2 text-xs text-gray-300"
+                  >
+                    <option value="">Asignar a...</option>
+                    {collaborators.map(c => (
+                      <option key={c.id} value={c.name}>{c.name}</option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={addTask}
+                    className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg text-[10px] transition"
+                  >
+                    Añadir
+                  </button>
+                  <button
+                    onClick={() => { setShowAddTask(false); setNewTaskTitle(''); setNewTaskAssignee(''); }}
+                    className="px-3 py-1.5 bg-gray-900 text-gray-400 hover:text-white rounded-lg text-[10px] transition"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
 
           <textarea
             id="doc-content-textarea"

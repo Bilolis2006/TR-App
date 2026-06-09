@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   Calculator, 
   Cpu, 
@@ -89,6 +89,22 @@ export default function App() {
 
   // Quick stats computed
   const recommendedCalculated = calculateFleet(params).recommendedForklifts;
+  const criticalAlerts = alerts.filter(a => a.severity === 'high');
+  const operationalCount = fleet.filter(f => f.status === 'operational').length;
+
+  const tabNavRef = useRef<HTMLDivElement>(null);
+  const [isStickyNavVisible, setIsStickyNavVisible] = useState(false);
+
+  useEffect(() => {
+    const el = tabNavRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setIsStickyNavVisible(!entry.isIntersecting),
+      { threshold: 0 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   return (
     <div 
@@ -170,6 +186,34 @@ export default function App() {
         </div>
       </header>
 
+      {/* Sticky Floating Nav Bar - appears when tab nav scrolls out of view */}
+      {isStickyNavVisible && (
+        <div className="fixed top-16 left-0 right-0 z-40 bg-[#0d1422]/95 backdrop-blur-md border-b border-gray-900 shadow-xl">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 flex items-center justify-between gap-4">
+            <div className="flex gap-1.5 flex-wrap">
+              <button onClick={() => setActiveTab('calculator')} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${activeTab === 'calculator' ? 'bg-red-600 text-white shadow-md' : 'text-gray-400 hover:text-white hover:bg-gray-900'}`}>
+                <Calculator className="w-3.5 h-3.5" /> Calculadora
+              </button>
+              <button onClick={() => setActiveTab('telemetry')} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${activeTab === 'telemetry' ? 'bg-red-600 text-white shadow-md' : 'text-gray-400 hover:text-white hover:bg-gray-900'}`}>
+                <Cpu className="w-3.5 h-3.5" /> Telemetría
+              </button>
+              <button onClick={() => setActiveTab('energy')} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${activeTab === 'energy' ? 'bg-red-600 text-white shadow-md' : 'text-gray-400 hover:text-white hover:bg-gray-900'}`}>
+                <Leaf className="w-3.5 h-3.5" /> Energía
+              </button>
+              <button onClick={() => setActiveTab('collaboration')} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${activeTab === 'collaboration' ? 'bg-red-600 text-white shadow-md' : 'text-gray-400 hover:text-white hover:bg-gray-900'}`}>
+                <Users className="w-3.5 h-3.5" /> Colaboración
+              </button>
+            </div>
+            {criticalAlerts.length > 0 && (
+              <div className="flex items-center gap-1.5 px-2.5 py-1 bg-red-950/30 border border-red-600/30 rounded-lg flex-shrink-0">
+                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                <span className="text-[10px] font-bold text-red-400">{criticalAlerts.length} alerta{criticalAlerts.length !== 1 ? 's' : ''} crítica{criticalAlerts.length !== 1 ? 's' : ''}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Hero Welcome banner */}
       <div id="welcome-banner" className="bg-[#0b121e]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-gray-900/40">
@@ -181,16 +225,32 @@ export default function App() {
             </p>
           </div>
 
-          {/* Quick Metrics display */}
-          <div className="flex gap-4 font-mono">
-            <div className="p-3 bg-gray-900/50 rounded-xl border border-gray-850 text-center">
-              <span className="text-[9px] uppercase text-gray-500 block">Flotilla Teórica</span>
-              <span id="quick-recommended-calc" className="text-sm font-black text-amber-500">{recommendedCalculated} uds.</span>
-            </div>
-            <div className="p-3 bg-gray-900/50 rounded-xl border border-gray-850 text-center">
-              <span className="text-[9px] uppercase text-gray-500 block">Alertas Activas</span>
+          {/* Quick Metrics display - 3 clickable KPI widgets */}
+          <div className="flex gap-3 font-mono flex-wrap">
+            <button
+              onClick={() => setActiveTab('telemetry')}
+              className="p-3 bg-gray-900/50 rounded-xl border border-gray-850 text-center hover:border-emerald-500/30 hover:bg-gray-900/80 transition cursor-pointer group"
+            >
+              <span className="text-[9px] uppercase text-gray-500 block group-hover:text-gray-400">Flota Operativa</span>
+              <span className="text-sm font-black text-emerald-500">{operationalCount}/{fleet.length}</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('telemetry')}
+              className="p-3 bg-gray-900/50 rounded-xl border border-gray-850 text-center hover:border-red-500/30 hover:bg-gray-900/80 transition cursor-pointer group min-w-[96px]"
+            >
+              <span className="text-[9px] uppercase text-gray-500 block group-hover:text-gray-400">Alertas Activas</span>
               <span id="quick-alerts-count" className="text-sm font-black text-red-500">{alerts.length}</span>
-            </div>
+              {criticalAlerts.length > 0 && (
+                <span className="text-[8px] text-red-400 block truncate">{criticalAlerts[0].machineName}</span>
+              )}
+            </button>
+            <button
+              onClick={() => setActiveTab('calculator')}
+              className="p-3 bg-gray-900/50 rounded-xl border border-gray-850 text-center hover:border-amber-500/30 hover:bg-gray-900/80 transition cursor-pointer group"
+            >
+              <span className="text-[9px] uppercase text-gray-500 block group-hover:text-gray-400">Flotilla Teórica</span>
+              <span id="quick-recommended-calc" className="text-sm font-black text-amber-500">{recommendedCalculated} uds.</span>
+            </button>
           </div>
         </div>
       </div>
@@ -259,7 +319,7 @@ export default function App() {
         </div>
         
         {/* Workspace Navigation Tabs & Sync controls */}
-        <div className="flex flex-col sm:flex-row gap-4 justify-between items-stretch sm:items-center bg-[#0d1422] p-2.5 rounded-xl border border-gray-900">
+        <div ref={tabNavRef} className="flex flex-col sm:flex-row gap-4 justify-between items-stretch sm:items-center bg-[#0d1422] p-2.5 rounded-xl border border-gray-900">
           
           {/* Navigation Items */}
           <div id="tabs-navigation" className="flex flex-wrap gap-1.5">
